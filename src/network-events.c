@@ -87,6 +87,20 @@ static __always_inline network_event_t init_message(u64 pid_tgid, u16 protocol_t
     ev.process.pid = (u32)(pid_tgid >> 32);
     bpf_get_current_comm(ev.process.comm, sizeof(ev.process.comm));
 
+    // Best-effort PID namespace enrichment
+    ev.pidns_inum = 0;
+    void *ts = (void *)bpf_get_current_task();
+    if (ts != NULL) {
+        void *nsproxy = read_field_ptr(ts, CRC_TASK_STRUCT_NSPROXY);
+        if (nsproxy != NULL) {
+            void *pid_ns = read_field_ptr(nsproxy, CRC_NSPROXY_PID_NS_FOR_CHILDREN);
+            if (pid_ns != NULL) {
+                read_field(pid_ns, CRC_PID_NS_NS_INUM,
+                           &ev.pidns_inum, sizeof(ev.pidns_inum));
+            }
+        }
+    }
+
     return ev;
 }
 
