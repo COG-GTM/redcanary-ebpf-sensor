@@ -47,9 +47,13 @@ CFLAGS += \
 TARGET = -target $(ARCH)
 INCLUDES = -I $(SRC)
 
-test: tests/test_security_events.c
+TEST_CC ?= $(shell command -v gcc 2>/dev/null || echo $(CC))
+test: tests/test_security_events.c tests/test_types.c
+	mkdir -p $(OBJDIR)
 	$(CC) -Wall -Werror -I $(SRC) -o $(OBJDIR)/test_security_events tests/test_security_events.c
 	$(OBJDIR)/test_security_events
+	$(TEST_CC) -Wall -Werror -I $(SRC) -o $(OBJDIR)/test_types tests/test_types.c
+	$(OBJDIR)/test_types
 	@echo "All tests passed."
 
 clean:
