@@ -17,6 +17,7 @@ struct syscalls_enter_generic_args {
 
 typedef struct {
     file_message_type_t kind;   // kind of file message
+    u64 owner_pid_tgid;         // pid_tgid that created this entry (staleness detection)
     u64 probe_id;               // ID of the probe that inserted the event
     u64 start_ktime_ns;         // when did the syscall start
     void *vfsmount;             // vfsmount of the relevant dentries
@@ -49,12 +50,12 @@ typedef struct {
 } incomplete_file_message_t;
 
 // A map of file messages that have started (an enter tracepoint) but are yet to finish (the exit
-// tracepoint)
+// tracepoint). Uses LRU to auto-evict stale entries from threads killed mid-syscall.
 struct bpf_map_def SEC("maps/incomplete_file_messages") incomplete_file_messages = {
-    .type = BPF_MAP_TYPE_HASH,
+    .type = BPF_MAP_TYPE_LRU_HASH,
     .key_size = sizeof(u64),
     .value_size = sizeof(incomplete_file_message_t),
-    .max_entries = 2048,
+    .max_entries = 8 * 1024,
     .pinning = 0,
     .namespace = "",
 };
@@ -71,10 +72,13 @@ static __always_inline void prepare_file_message(struct syscalls_enter_generic_a
 static __always_inline void try_insert_incomplete_file_message(struct syscalls_enter_generic_args* ctx, incomplete_file_message_t* event)
 {
     u64 pid_tgid = bpf_get_current_pid_tgid();
+    event->owner_pid_tgid = pid_tgid;
 
     // deliberately only insert if the key does not exist -- we want
     // to be truthful if we forgot to pop so userspace knows that
-    // there is a bug somewhere
+    // there is a bug somewhere. With LRU the map won't fill up (old
+    // entries get evicted), so BPF_NOEXIST failures indicate a
+    // genuine duplicate from the same pid_tgid in the same syscall.
     int ret = bpf_map_update_elem(&incomplete_file_messages, &pid_tgid, event, BPF_NOEXIST);
     if (ret < 0) {
         file_message_t fm = {0};
@@ -104,6 +108,25 @@ static __always_inline incomplete_file_message_t *get_event(void *ctx,
                                                             file_message_type_t kind, u64 *pid_tgid, u64 probe_id) {
   incomplete_file_message_t *event = bpf_map_lookup_elem(&incomplete_file_messages, pid_tgid);
   if (event == NULL) return NULL;
+
+  // Validate that this entry belongs to the current thread. With LRU eviction
+  // and pid_tgid recycling, a stale entry from a killed thread could match a
+  // new thread.
+  if (event->owner_pid_tgid != *pid_tgid) {
+      file_message_t fm = {0};
+      fm.type = FM_WARNING;
+      fm.u.warning.probe_id = probe_id;
+      fm.u.warning.pid_tgid = *pid_tgid;
+      fm.u.warning.message_type.file = kind;
+      fm.u.warning.code = W_PID_TGID_MISMATCH;
+      fm.u.warning.info.stored_pid_tgid = event->owner_pid_tgid;
+
+      push_file_message(ctx, &fm);
+
+      bpf_map_delete_elem(&incomplete_file_messages, pid_tgid);
+
+      return NULL;
+  }
 
   file_message_type_t stored_kind = event->kind;
   if (stored_kind != kind) {
@@ -136,6 +159,11 @@ static __always_inline incomplete_file_message_t* set_file_dentry(struct pt_regs
     incomplete_file_message_t *event = bpf_map_lookup_elem(&incomplete_file_messages, &pid_tgid);
 
     if (event == NULL) return NULL;
+    // Validate ownership to guard against pid_tgid recycling with LRU eviction
+    if (event->owner_pid_tgid != pid_tgid) {
+        bpf_map_delete_elem(&incomplete_file_messages, &pid_tgid);
+        return NULL;
+    }
     if (event->target_dentry != NULL) return NULL;
     if (event->kind != kind) return NULL;
 
