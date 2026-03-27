@@ -80,4 +80,9 @@ all: depends $(OBJDIR) wrapper no_wrapper
 dev: $(OBJDIR) wrapper no_wrapper
 	@:
 
-.PHONY: all realclean clean ebpf ebpf_verifier depends
+# Compile-time validation tests (run with host compiler)
+HOST_CC ?= cc
+test_file_maps:
+	$(HOST_CC) -fsyntax-only -Wall -Werror -I $(SRC) tests/test_file_maps.c
+
+.PHONY: all realclean clean ebpf ebpf_verifier depends test_file_maps
