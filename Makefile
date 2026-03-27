@@ -80,4 +80,9 @@ all: depends $(OBJDIR) wrapper no_wrapper
 dev: $(OBJDIR) wrapper no_wrapper
 	@:
 
-.PHONY: all realclean clean ebpf ebpf_verifier depends
+TEST_CC ?= $(shell command -v gcc 2>/dev/null || echo $(CC))
+test:
+	mkdir -p build
+	$(TEST_CC) -Wall -Werror -I $(SRC) -o build/test_types tests/test_types.c && ./build/test_types
+
+.PHONY: all realclean clean ebpf ebpf_verifier depends test

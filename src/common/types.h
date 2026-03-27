@@ -220,6 +220,8 @@ typedef struct
     u32 egid;
     int retcode;
     u64 mono_ns;
+    u32 pidns_inum;
+    u32 mntns_inum;
     syscall_data_t data;
 } syscall_info_t, *psyscall_info_t;
 
@@ -260,6 +262,7 @@ typedef struct
     struct process_data process; // pid and comm string
     u64 mono_ns;                 // Timestamp
     ip_addr_t protos;
+    u32 pidns_inum;              // PID namespace inode number
 } network_event_t, *pnetwork_event_t;
 
 typedef enum

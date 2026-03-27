@@ -183,6 +183,23 @@ static __always_inline int fill_syscall(syscall_info_t *syscall_info, void *ts, 
     syscall_info->egid = uid_gid >> 32;
     syscall_info->mono_ns = bpf_ktime_get_ns();
 
+    // Namespace info is best-effort enrichment; failures set values to 0
+    syscall_info->pidns_inum = 0;
+    syscall_info->mntns_inum = 0;
+    void *nsproxy = read_field_ptr(ts, CRC_TASK_STRUCT_NSPROXY);
+    if (nsproxy != NULL) {
+        void *pid_ns = read_field_ptr(nsproxy, CRC_NSPROXY_PID_NS_FOR_CHILDREN);
+        if (pid_ns != NULL) {
+            read_field(pid_ns, CRC_NS_COMMON_INUM,
+                       &syscall_info->pidns_inum, sizeof(syscall_info->pidns_inum));
+        }
+        void *mnt_ns = read_field_ptr(nsproxy, CRC_NSPROXY_MNT_NS);
+        if (mnt_ns != NULL) {
+            read_field(mnt_ns, CRC_NS_COMMON_INUM,
+                       &syscall_info->mntns_inum, sizeof(syscall_info->mntns_inum));
+        }
+    }
+
     return 0;
 }
 
