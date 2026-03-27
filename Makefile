@@ -47,6 +47,11 @@ CFLAGS += \
 TARGET = -target $(ARCH)
 INCLUDES = -I $(SRC)
 
+test: tests/test_security_events.c
+	$(CC) -Wall -Werror -I $(SRC) -o $(OBJDIR)/test_security_events tests/test_security_events.c
+	$(OBJDIR)/test_security_events
+	@echo "All tests passed."
+
 clean:
 	rm -rf $(OBJDIR)
 
@@ -85,4 +90,4 @@ HOST_CC ?= cc
 test_file_maps:
 	$(HOST_CC) -fsyntax-only -Wall -Werror -I $(SRC) tests/test_file_maps.c
 
-.PHONY: all realclean clean ebpf ebpf_verifier depends test_file_maps
+.PHONY: all realclean clean ebpf ebpf_verifier depends test test_file_maps
