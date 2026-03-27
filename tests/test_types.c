@@ -80,22 +80,32 @@ int main(void) {
         "CRC_NSPROXY_PID_NS_FOR_CHILDREN must be non-zero");
     RUNTIME_ASSERT(CRC_NSPROXY_MNT_NS != 0,
         "CRC_NSPROXY_MNT_NS must be non-zero");
-    RUNTIME_ASSERT(CRC_NS_COMMON_INUM != 0,
-        "CRC_NS_COMMON_INUM must be non-zero");
+    RUNTIME_ASSERT(CRC_PID_NS_NS_INUM != 0,
+        "CRC_PID_NS_NS_INUM must be non-zero");
+    RUNTIME_ASSERT(CRC_MNT_NS_NS_INUM != 0,
+        "CRC_MNT_NS_NS_INUM must be non-zero");
 
     // Uniqueness checks
     RUNTIME_ASSERT(CRC_TASK_STRUCT_NSPROXY != CRC_NSPROXY_PID_NS_FOR_CHILDREN,
         "namespace CRC constants must be unique (nsproxy vs pid_ns)");
     RUNTIME_ASSERT(CRC_TASK_STRUCT_NSPROXY != CRC_NSPROXY_MNT_NS,
         "namespace CRC constants must be unique (nsproxy vs mnt_ns)");
-    RUNTIME_ASSERT(CRC_TASK_STRUCT_NSPROXY != CRC_NS_COMMON_INUM,
-        "namespace CRC constants must be unique (nsproxy vs ns_inum)");
+    RUNTIME_ASSERT(CRC_TASK_STRUCT_NSPROXY != CRC_PID_NS_NS_INUM,
+        "namespace CRC constants must be unique (nsproxy vs pid_ns_inum)");
+    RUNTIME_ASSERT(CRC_TASK_STRUCT_NSPROXY != CRC_MNT_NS_NS_INUM,
+        "namespace CRC constants must be unique (nsproxy vs mnt_ns_inum)");
     RUNTIME_ASSERT(CRC_NSPROXY_PID_NS_FOR_CHILDREN != CRC_NSPROXY_MNT_NS,
         "namespace CRC constants must be unique (pid_ns vs mnt_ns)");
-    RUNTIME_ASSERT(CRC_NSPROXY_PID_NS_FOR_CHILDREN != CRC_NS_COMMON_INUM,
-        "namespace CRC constants must be unique (pid_ns vs ns_inum)");
-    RUNTIME_ASSERT(CRC_NSPROXY_MNT_NS != CRC_NS_COMMON_INUM,
-        "namespace CRC constants must be unique (mnt_ns vs ns_inum)");
+    RUNTIME_ASSERT(CRC_NSPROXY_PID_NS_FOR_CHILDREN != CRC_PID_NS_NS_INUM,
+        "namespace CRC constants must be unique (pid_ns vs pid_ns_inum)");
+    RUNTIME_ASSERT(CRC_NSPROXY_PID_NS_FOR_CHILDREN != CRC_MNT_NS_NS_INUM,
+        "namespace CRC constants must be unique (pid_ns vs mnt_ns_inum)");
+    RUNTIME_ASSERT(CRC_NSPROXY_MNT_NS != CRC_PID_NS_NS_INUM,
+        "namespace CRC constants must be unique (mnt_ns vs pid_ns_inum)");
+    RUNTIME_ASSERT(CRC_NSPROXY_MNT_NS != CRC_MNT_NS_NS_INUM,
+        "namespace CRC constants must be unique (mnt_ns vs mnt_ns_inum)");
+    RUNTIME_ASSERT(CRC_PID_NS_NS_INUM != CRC_MNT_NS_NS_INUM,
+        "namespace CRC constants must be unique (pid_ns_inum vs mnt_ns_inum)");
 
     if (failed) {
         fprintf(stderr, "Some checks failed.\n");

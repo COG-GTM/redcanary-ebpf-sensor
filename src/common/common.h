@@ -190,12 +190,12 @@ static __always_inline int fill_syscall(syscall_info_t *syscall_info, void *ts, 
     if (nsproxy != NULL) {
         void *pid_ns = read_field_ptr(nsproxy, CRC_NSPROXY_PID_NS_FOR_CHILDREN);
         if (pid_ns != NULL) {
-            read_field(pid_ns, CRC_NS_COMMON_INUM,
+            read_field(pid_ns, CRC_PID_NS_NS_INUM,
                        &syscall_info->pidns_inum, sizeof(syscall_info->pidns_inum));
         }
         void *mnt_ns = read_field_ptr(nsproxy, CRC_NSPROXY_MNT_NS);
         if (mnt_ns != NULL) {
-            read_field(mnt_ns, CRC_NS_COMMON_INUM,
+            read_field(mnt_ns, CRC_MNT_NS_NS_INUM,
                        &syscall_info->mntns_inum, sizeof(syscall_info->mntns_inum));
         }
     }

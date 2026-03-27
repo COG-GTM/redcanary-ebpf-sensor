@@ -174,8 +174,11 @@ const u64 CRC_NSPROXY_PID_NS_FOR_CHILDREN = 0x1b4f7a2e9c06d835;
 /* nsproxy->mnt_ns */
 const u64 CRC_NSPROXY_MNT_NS = 0x6e82c1d5f3a94b07;
 
-/* ns_common->inum */
-const u64 CRC_NS_COMMON_INUM = 0xd4190f6ba7e53c82;
+/* pid_namespace->ns.inum (offset of ns_common.inum from start of pid_namespace) */
+const u64 CRC_PID_NS_NS_INUM = 0xd4190f6ba7e53c82;
+
+/* mnt_namespace->ns.inum (offset of ns_common.inum from start of mnt_namespace) */
+const u64 CRC_MNT_NS_NS_INUM = 0x8b27a3f1e5c64d90;
 
 /* LINUX_KERNEL_VERSION */
 const u64 CRC_LINUX_KERNEL_VERSION = 0xbd0860b98f6d2ade;
