@@ -1,0 +1,77 @@
+// redcanary-ebpf-sensor architecture: probes -> maps -> telemetry.
+// Edit this file, then re-render:
+//   dot -Tpng -Gdpi=110 docs/diagrams/architecture.dot -o docs/diagrams/architecture.png
+//   dot -Tsvg docs/diagrams/architecture.dot -o docs/diagrams/architecture.svg
+digraph architecture {
+  graph [rankdir=LR, fontname="DejaVu Sans", fontsize=13, nodesep=0.35, ranksep=0.9,
+         labelloc=t, label="redcanary-ebpf-sensor: kernel hooks -> BPF maps -> perf-event telemetry\n(5 BPF objects under src/*.c, each built twice: build/<arch>/ and build/<arch>/wrapped/)"];
+  node  [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=11, fillcolor="#ffffff"];
+  edge  [fontname="DejaVu Sans", fontsize=9, color="#555555"];
+
+  subgraph cluster_kernel {
+    label="Linux kernel hooks"; style="rounded,filled"; fillcolor="#eef3fb"; color="#6b8cc7";
+    k_file [label="Syscall tracepoints + VFS/LSM kprobes\nopen(at/at2), creat, mkdir, mknod, link, symlink,\nunlink, rmdir, rename, truncate, chmod/chown,\nmemfd_create; security_path_* / security_inode_*,\nmnt_want_write*, vfs_symlink"];
+    k_proc [label="Syscall kprobes/kretprobes + tracepoints\nexecve(at), clone/clone3/fork/vfork,\nunshare, exit/exit_group, load_script"];
+    k_net  [label="Kernel network kprobes/kretprobes\ntcp_connect, inet_csk_accept,\nudp_outgoing, ip_local_out, __skb_recv_udp"];
+    k_wpm  [label="Syscall kprobes\nptrace (write / attach / seize),\nprocess_vm_writev"];
+    k_sec  [label="Syscall kprobes\nmprotect/pkey_mprotect (PROT_EXEC),\nmount, set*uid / set*gid"];
+  }
+
+  subgraph cluster_bpf {
+    label="BPF programs (src/*.c)"; style="rounded,filled"; fillcolor="#f2f8ee"; color="#7aa95c";
+    p_file [label="file-events.c\n81 programs", fillcolor="#dcefd0"];
+    p_proc [label="process-events.c\n21 programs", fillcolor="#dcefd0"];
+    p_net  [label="network-events.c\n7 programs", fillcolor="#dcefd0"];
+    p_wpm  [label="wpm-events.c\n3 programs", fillcolor="#dcefd0"];
+    p_sec  [label="security-events.c\n9 programs", fillcolor="#dcefd0"];
+  }
+
+  subgraph cluster_shared {
+    label="Shared state (src/common)"; style="rounded,filled"; fillcolor="#fbf6e9"; color="#c9a646";
+    m_offsets [label="offsets (HASH, 4096)\nkernel struct field offsets by CRC key,\nincl. nsproxy -> pid/mnt namespace inum", shape=cylinder, fillcolor="#fff4cf"];
+    m_tail    [label="tail_call_table / tp_programs\n(PROG_ARRAY, 32 each)", shape=cylinder, fillcolor="#fff4cf"];
+    m_percpu  [label="buffers (32 KiB), percpu_path, warning\n(PERCPU_ARRAY, 1 each)", shape=cylinder, fillcolor="#fff4cf"];
+  }
+
+  subgraph cluster_state {
+    label="Entry -> exit state (LRU maps)"; style="rounded,filled"; fillcolor="#f7eef8"; color="#a56bb0";
+    m_incfile [label="incomplete_file_messages (LRU, 8192)\nkey pid_tgid, owner_pid_tgid check,\nBPF_NOEXIST insert; rename_names,\nfilter_transitions (USE_PATH_FILTER)", shape=cylinder, fillcolor="#f1dcf4"];
+    m_incproc [label="incomplete_clone (LRU, 8192)\nincomplete_unshare (LRU)\nscripts / interpreters / rel_interpreters", shape=cylinder, fillcolor="#f1dcf4"];
+    m_incnet  [label="tcp_connect, udp_outgoing_map (LRU, 1024)\nlru_hash (LRU, 8192): de-dup of\npid + remote address/port shape", shape=cylinder, fillcolor="#f1dcf4"];
+  }
+
+  subgraph cluster_out {
+    label="Telemetry channels (PERF_EVENT_ARRAY)"; style="rounded,filled"; fillcolor="#fdeeee"; color="#c76b6b";
+    o_file [label="file_events\nfile_message_t (+ paths in strings[])", shape=note, fillcolor="#f9d6d6"];
+    o_proc [label="process_events\nprocess_message_t / syscall_info_t\n(pidns_inum, mntns_inum)", shape=note, fillcolor="#f9d6d6"];
+    o_net  [label="network_events\nnetwork_event_t (pidns_inum)", shape=note, fillcolor="#f9d6d6"];
+    o_wpm  [label="wpm_events / tp_events\nwrite_process_memory_event_t /\ntrace_process_event_t", shape=note, fillcolor="#f9d6d6"];
+    o_sec  [label="security_events / security_trace_events\nwrite_process_memory_event_t /\ntrace_process_event_t", shape=note, fillcolor="#f9d6d6"];
+  }
+
+  user [label="User-space loader / agent\n(not in this repo)\nloads objects, fills offsets and\nprogram arrays, reads perf buffers", shape=component, fillcolor="#e8e8e8"];
+
+  k_file -> p_file; k_proc -> p_proc; k_net -> p_net; k_wpm -> p_wpm; k_sec -> p_sec;
+
+  p_file -> m_incfile [label="entry: stash\nexit: pop + verify"];
+  p_proc -> m_incproc [label="entry: stash\nexit: pop"];
+  p_net  -> m_incnet  [label="entry: stash\nexit: pop, de-dup"];
+
+  p_file -> m_tail [style=dashed, label="path walk"];
+  p_proc -> m_tail [style=dashed, label="exe / pwd"];
+  p_file -> m_percpu [style=dashed];
+  p_proc -> m_percpu [style=dashed];
+  p_proc -> m_offsets [style=dashed, label="fill_syscall()"];
+  p_file -> m_offsets [style=dashed];
+  p_net  -> m_offsets [style=dashed, label="pidns"];
+
+  p_file -> o_file [color="#c76b6b", penwidth=1.6];
+  p_proc -> o_proc [color="#c76b6b", penwidth=1.6];
+  p_net  -> o_net  [color="#c76b6b", penwidth=1.6];
+  p_wpm  -> o_wpm  [color="#c76b6b", penwidth=1.6];
+  p_sec  -> o_sec  [color="#c76b6b", penwidth=1.6];
+
+  o_file -> user; o_proc -> user; o_net -> user; o_wpm -> user; o_sec -> user;
+  user -> m_offsets [style=dotted, constraint=false, label="writes"];
+  user -> m_tail    [style=dotted, constraint=false, label="writes"];
+}
