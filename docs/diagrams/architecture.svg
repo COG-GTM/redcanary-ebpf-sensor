@@ -286,8 +286,8 @@
 <path fill="#f1dcf4" stroke="black" d="M940,-420.96C940,-424.02 881.28,-426.5 809,-426.5 736.72,-426.5 678,-424.02 678,-420.96 678,-420.96 678,-371.04 678,-371.04 678,-367.98 736.72,-365.5 809,-365.5 881.28,-365.5 940,-367.98 940,-371.04 940,-371.04 940,-420.96 940,-420.96"/>
 <path fill="none" stroke="black" d="M940,-420.96C940,-417.9 881.28,-415.41 809,-415.41 736.72,-415.41 678,-417.9 678,-420.96"/>
 <text text-anchor="middle" x="809" y="-405.2" font-family="DejaVu Sans" font-size="11.00">tcp_connect, udp_outgoing_map (LRU, 1024)</text>
-<text text-anchor="middle" x="809" y="-393.2" font-family="DejaVu Sans" font-size="11.00">lru_hash (LRU, 8192): de&#45;dup of</text>
-<text text-anchor="middle" x="809" y="-381.2" font-family="DejaVu Sans" font-size="11.00">pid + remote address/port shape</text>
+<text text-anchor="middle" x="809" y="-393.2" font-family="DejaVu Sans" font-size="11.00">lru_hash (LRU, 8192): de&#45;dup key</text>
+<text text-anchor="middle" x="809" y="-381.2" font-family="DejaVu Sans" font-size="11.00">pid + addresses + dest_port (0 for UDP)</text>
 </g>
 <!-- p_net&#45;&gt;m_incnet -->
 <g id="edge8" class="edge">

@@ -37,7 +37,7 @@ digraph architecture {
     label="Entry -> exit state (LRU maps)"; style="rounded,filled"; fillcolor="#f7eef8"; color="#a56bb0";
     m_incfile [label="incomplete_file_messages (LRU, 8192)\nkey pid_tgid, owner_pid_tgid check,\nBPF_NOEXIST insert; rename_names,\nfilter_transitions (USE_PATH_FILTER)", shape=cylinder, fillcolor="#f1dcf4"];
     m_incproc [label="incomplete_clone (LRU, 8192)\nincomplete_unshare (LRU)\nscripts / interpreters / rel_interpreters", shape=cylinder, fillcolor="#f1dcf4"];
-    m_incnet  [label="tcp_connect, udp_outgoing_map (LRU, 1024)\nlru_hash (LRU, 8192): de-dup of\npid + remote address/port shape", shape=cylinder, fillcolor="#f1dcf4"];
+    m_incnet  [label="tcp_connect, udp_outgoing_map (LRU, 1024)\nlru_hash (LRU, 8192): de-dup key\npid + addresses + dest_port (0 for UDP)", shape=cylinder, fillcolor="#f1dcf4"];
   }
 
   subgraph cluster_out {

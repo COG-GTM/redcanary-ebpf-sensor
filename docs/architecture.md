@@ -23,8 +23,12 @@ top-level `src/*.c` file compiles to one BPF ELF object. A separate
 user-space loader (not in this repository; source comments refer to
 `oxidebpf`) is expected to:
 
-- load the objects and attach each `SEC("kprobe/...")`,
-  `SEC("kretprobe/...")` and `SEC("tracepoint/...")` program;
+- load the objects and attach the `SEC("kprobe/...")`,
+  `SEC("kretprobe/...")` and `SEC("tracepoint/syscalls/...")` programs
+  that name real kernel hooks. Some sections are tail-call targets only
+  and must go into a program array instead of being attached, e.g.
+  `kprobe/exit_symlink` (`EXIT_SYMLINK`), `kprobe/sys_exec_pwd`
+  (`SYS_EXEC_PWD`) and `tracepoint/filemod_paths` (`FILE_PATHS`);
 - populate the `offsets` map with kernel structure field offsets;
 - populate the `tail_call_table` and `tp_programs` program arrays;
 - read the perf-event arrays and assemble telemetry.
@@ -122,9 +126,11 @@ PID and mount namespace inode numbers (`pidns_inum`, `mntns_inum`).
   for `ret_udp_outgoing` (LRU, 1024 each, keyed by thread id).
 - `ret_inet_csk_accept` (inbound TCP) and `ret___skb_recv_udp` (inbound
   UDP) emit directly.
-- `push_event()` drops events whose pid + remote address/port "shape" is
-  already in `lru_hash` (LRU, 8192) and records the shape only after a
-  successful `bpf_perf_event_output`.
+- `push_event()` drops events whose shape is already in `lru_hash`
+  (LRU, 8192) and records the shape only after a successful
+  `bpf_perf_event_output`. The key is `network_event_key_t`: pid, the
+  `protos` address block (both addresses) and `dest_port` (`0` for UDP).
+  For inbound TCP, `dest_port` is the local port.
 
 Output is `network_event_t` on `network_events`, including `pidns_inum`.
 
