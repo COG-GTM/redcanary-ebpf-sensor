@@ -7,27 +7,61 @@ product.
 These applications do not use [BCC](https://github.com/iovisor/bcc) to build. The
 main objective of this design is to have a compile once, run everywhere application.
 
+## Architecture
+
+See [docs/architecture.md](docs/architecture.md) for the probes, BPF maps
+and telemetry channels, with a diagram
+([PNG](docs/diagrams/architecture.png), [SVG](docs/diagrams/architecture.svg),
+Graphviz source [architecture.dot](docs/diagrams/architecture.dot)).
+
+![Architecture diagram](docs/diagrams/architecture.png)
+
 ## Build
 
-To build this project run:
-
-For building both x86_64 and aarch64 architectures
+For building both x86_64 and aarch64 architectures (the image runs
+`make dev`; the arm64 service needs Docker multi-platform emulation on an
+x86_64 host):
 `docker compose up`
 
 To build either x86_64 or aarch64 architectures
-`docker compose run --rm ebpf-amd make all`
+`docker compose run --rm ebpf-amd64 make all`
 or
-`docker compose run --rm ebpf-arm make all`
+`docker compose run --rm ebpf-arm64 make all`
+
+Objects are written to `build/<arch>/` and `build/<arch>/wrapped/`
+(the latter compiled with `-DCONFIG_SYSCALL_WRAPPER`).
+
+> **Known issue:** the Docker image installs Ubuntu 22.04's default
+> clang 14, which currently crashes (segfault) while compiling
+> `src/file-events.c`; the other four objects build. Building on the host
+> with clang 15 (`sudo apt-get install clang-15 llvm-15`, then
+> `make CLANG_VER=15 dev`) produces all objects.
 
 ---
 
-A vscode cpp properties files has been included. Make sure to update the include path with the path
-on your local system where the kernel header files are located
+A vscode cpp properties file (`.vscode/c_cpp_properties.json`) has been
+included. Make sure to update the include path with the path on your
+local system where the kernel header files are located.
 
-For convenience-sake, when running in a system with apt (e.g., Ubuntu)
-you can run `sudo make dev` to build all of the eBPF programs into the
-local `build/` directory. This command uses the kernel version of the
-currently running system.
+For convenience-sake, when running in a system with clang/LLVM installed
+you can run `make dev` to build all of the eBPF programs into the
+local `build/` directory (`make all` additionally runs `apt-get install`
+for the toolchain and needs `sudo`). `make dev` uses the host's
+architecture (`uname -m`); kernel types come from the bundled
+`vmlinux_5_8_0_*.h` headers, not from the running kernel. Set
+`CLANG_VER=<n>` to use versioned tools such as `clang-15` / `llc-15`.
+
+If `build/<arch>/` already exists without a `wrapped/` subdirectory
+(for example after `make test`), run `make clean` before `make dev`.
+
+## Tests
+
+Host-only tests (no kernel or BPF loading):
+
+```bash
+make test            # tests/test_security_events.c, tests/test_types.c
+make test_file_maps  # compile-time checks in tests/test_file_maps.c
+```
 
 ## Gotchas and Patterns
 
@@ -57,7 +91,7 @@ We then proceed to send `&pm` to our functions and set the proper values there. 
 ### Per CPU structures
 
 Be careful when using PERCPU structures (such as
-`BPF_MAP_TYPE_PERFCPU_ARRAY`). While an eBPF program is not
+`BPF_MAP_TYPE_PERCPU_ARRAY`). While an eBPF program is not
 preemptable, syscalls are. This means that a kprobe for a syscall may
 happen in one CPU but its kretprobe will happen in a different
 CPU. This means that passing data using per cpu structures accross
